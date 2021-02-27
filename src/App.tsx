@@ -1,21 +1,17 @@
-import React from 'react';
-import './App.css';
-import Drawer from './components/Drawer';
-
-interface TestProps {
-  test: boolean,
-};
+import React from "react";
+import "./App.css";
+import Drawer from "./components/Drawer";
+import { DrawerProps } from "./interfaces";
 
 function App() {
-  const testProps: TestProps = {
-    test: false,
-  }
+  const DrawerProps: DrawerProps = {
+    canvasWidth: 1900,
+    canvasHeight: 800,
+  };
 
   return (
     <div className="App">
-      <Drawer
-        {...testProps}
-      />
+      <Drawer {...DrawerProps} />
     </div>
   );
 }
