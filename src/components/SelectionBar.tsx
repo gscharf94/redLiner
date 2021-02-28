@@ -41,12 +41,18 @@ export default class SelectionBar extends React.Component<SelectionBarProps, Sel
       selectionCallback: this.drawingOptionSelection,
     };
 
+    const undoSelectionProps: SelectionButtonProps = {
+      selectionType: DrawingOptions.undo,
+      selectionCallback: this.drawingOptionSelection,
+    };
+
     return (
       <div style={{ display: "flex", justifyContent: "center", backgroundColor: "lightblue" }}>
         <SelectionButton {...boreSelectionProps} />
         <SelectionButton {...staTextSelectionProps} />
         <SelectionButton {...stationArrowSelectionProps} />
         <SelectionButton {...clearSelectionProps} />
+        <SelectionButton {...undoSelectionProps} />
       </div>
     );
   }

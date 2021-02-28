@@ -6,6 +6,7 @@ export enum DrawingOptions {
   note,
   clear,
   stationArrow,
+  undo,
 }
 
 export interface DrawerProps {

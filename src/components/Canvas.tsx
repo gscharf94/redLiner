@@ -6,12 +6,108 @@ interface CanvasCoordinates {
   y: number;
 }
 
+interface CanvasHistory {
+  idCounter: number;
+  objectList: CanvasObject[];
+}
+
 interface CanvasState {
   currentlyDrawing: boolean;
   initialPosition: CanvasCoordinates | null;
   endPosition: CanvasCoordinates | null;
   width: number;
   height: number;
+  canvasHistory: CanvasHistory;
+}
+
+class CanvasObject {
+  id: number;
+
+  constructor(id: number) {
+    this.id = id;
+  }
+
+  drawSelf(canv: CanvasRenderingContext2D): void {}
+
+  drawRectangle(p1: CanvasCoordinates, p2: CanvasCoordinates, color: string, canv: CanvasRenderingContext2D) {
+    let width: number = Math.abs(p1.x - p2.x);
+    let height: number = Math.abs(p1.y - p2.y);
+
+    canv.fillStyle = color;
+    canv.fillRect(p1.x, p1.y, width, height);
+  }
+
+  drawSquare(p: CanvasCoordinates, color: "blue" | "green", canv: CanvasRenderingContext2D): void {
+    canv.fillStyle = color;
+    canv.fillRect(p.x - 10, p.y - 10, 20, 20);
+  }
+}
+
+class CanvasBore extends CanvasObject {
+  startPosition: CanvasCoordinates;
+  endPosition: CanvasCoordinates;
+
+  constructor(startPosition: CanvasCoordinates, endPosition: CanvasCoordinates, id: number) {
+    super(id);
+    this.startPosition = startPosition;
+    this.endPosition = endPosition;
+  }
+
+  drawSelf(canv: CanvasRenderingContext2D): void {
+    super.drawSelf(canv);
+
+    canv.beginPath();
+    canv.moveTo(this.startPosition.x, this.startPosition.y);
+    canv.lineTo(this.endPosition.x, this.endPosition.y);
+    canv.lineWidth = 9;
+    canv.setLineDash([25, 10, 25, 15]);
+    canv.strokeStyle = "yellow";
+    canv.stroke();
+
+    this.drawSquare(this.startPosition, "green", canv);
+    this.drawSquare(this.endPosition, "green", canv);
+  }
+}
+
+class CanvasStationText extends CanvasObject {
+  stationText: string;
+  footage: string;
+  date: string;
+  startEnd: "START" | "END";
+  position: CanvasCoordinates;
+
+  constructor(
+    stationText: string,
+    footage: string,
+    date: string,
+    startEnd: "START" | "END",
+    position: CanvasCoordinates,
+    id: number
+  ) {
+    super(id);
+    this.stationText = stationText;
+    this.footage = footage;
+    this.date = date;
+    this.startEnd = startEnd;
+    this.position = position;
+  }
+
+  drawSelf(canv: CanvasRenderingContext2D): void {
+    super.drawSelf(canv);
+
+    this.drawRectangle(
+      { x: this.position.x - 3, y: this.position.y - 18 },
+      { x: this.position.x + 122, y: this.position.y + 45 },
+      "red",
+      canv
+    );
+
+    canv.font = "20px Arial";
+    canv.fillStyle = "black";
+    canv.fillText(`STA#${this.stationText}`, this.position.x, this.position.y);
+    canv.fillText(`${this.footage}' ${this.startEnd}`, this.position.x, this.position.y + 20);
+    canv.fillText(this.date, this.position.x, this.position.y + 40);
+  }
 }
 
 export default class Canvas extends React.Component<CanvasProps, CanvasState> {
@@ -23,33 +119,27 @@ export default class Canvas extends React.Component<CanvasProps, CanvasState> {
       endPosition: null,
       width: props.width,
       height: props.height,
+      canvasHistory: { idCounter: 0, objectList: [] },
     };
 
     this.userClick = this.userClick.bind(this);
   }
 
-  drawLine(p1: CanvasCoordinates, p2: CanvasCoordinates) {
+  drawAllObjects() {
     let canvasElement: HTMLCanvasElement = document.getElementById("canv") as HTMLCanvasElement;
     let canv: CanvasRenderingContext2D = canvasElement.getContext("2d") as CanvasRenderingContext2D;
 
-    canv.beginPath();
-    canv.moveTo(p1.x, p1.y);
-    canv.lineTo(p2.x, p2.y);
-    canv.lineWidth = 9;
-    canv.setLineDash([25, 10, 25, 15]);
-    canv.strokeStyle = "yellow";
-    canv.stroke();
-
-    this.drawSquare(p1, "green");
-    this.drawSquare(p2, "green");
+    for (const obj of this.state.canvasHistory.objectList) {
+      obj.drawSelf(canv);
+    }
   }
 
-  drawSquare(p: CanvasCoordinates, color: "blue" | "green"): void {
-    let canvasElement: HTMLCanvasElement = document.getElementById("canv") as HTMLCanvasElement;
-    let canv: CanvasRenderingContext2D = canvasElement.getContext("2d") as CanvasRenderingContext2D;
-
-    canv.fillStyle = color;
-    canv.fillRect(p.x - 10, p.y - 10, 20, 20);
+  clearCanvasHistory() {
+    let currentCanvasHistory: CanvasHistory = this.state.canvasHistory;
+    currentCanvasHistory.objectList = [];
+    this.setState({
+      canvasHistory: currentCanvasHistory,
+    });
   }
 
   clearCanvas() {
@@ -59,20 +149,15 @@ export default class Canvas extends React.Component<CanvasProps, CanvasState> {
     canv.clearRect(0, 0, this.state.width, this.state.width);
   }
 
-  drawRectangle(p1: CanvasCoordinates, p2: CanvasCoordinates, color: string) {
-    let canvasElement: HTMLCanvasElement = document.getElementById("canv") as HTMLCanvasElement;
-    let canv: CanvasRenderingContext2D = canvasElement.getContext("2d") as CanvasRenderingContext2D;
-
-    let width: number = Math.abs(p1.x - p2.x);
-    let height: number = Math.abs(p1.y - p2.y);
-
-    canv.fillStyle = color;
-    canv.fillRect(p1.x, p1.y, width, height);
+  appendObjectToObjectList(obj: CanvasObject): void {
+    let currentCanvasHistory: CanvasHistory = this.state.canvasHistory;
+    currentCanvasHistory.objectList.push(obj);
+    this.setState({
+      canvasHistory: currentCanvasHistory,
+    });
   }
 
-  drawStationText(p: CanvasCoordinates) {
-    this.drawRectangle({ x: p.x - 3, y: p.y - 18 }, { x: p.x + 122, y: p.y + 45 }, "red");
-
+  createStationText(clickPosition: CanvasCoordinates) {
     let stationNumberInput = document.getElementById("stationNumberInput") as HTMLInputElement;
     let stationNumberText: string = stationNumberInput.value;
 
@@ -83,20 +168,53 @@ export default class Canvas extends React.Component<CanvasProps, CanvasState> {
     let dateText: string = dateInput.value;
 
     let startEndInput = document.getElementById("startEndSelect") as HTMLSelectElement;
-    let startEndOption = startEndInput.value;
+    let startEndOption = startEndInput.value as "START" | "END";
 
-    let canvasElement: HTMLCanvasElement = document.getElementById("canv") as HTMLCanvasElement;
-    let canv: CanvasRenderingContext2D = canvasElement.getContext("2d") as CanvasRenderingContext2D;
+    let stationText: CanvasObject = new CanvasStationText(
+      stationNumberText,
+      footageText,
+      dateText,
+      startEndOption,
+      clickPosition,
+      this.getNextId()
+    );
+    this.appendObjectToObjectList(stationText);
+  }
 
-    canv.font = "20px Arial";
-    canv.fillStyle = "black";
-    canv.fillText(`STA#${stationNumberText}`, p.x, p.y);
-    canv.fillText(`${footageText}' ${startEndOption}`, p.x, p.y + 20);
-    canv.fillText(dateText, p.x, p.y + 40);
+  createBoreLine(p1: CanvasCoordinates, p2: CanvasCoordinates): void {
+    let boreLine: CanvasObject = new CanvasBore(p1, p2, this.getNextId());
+    this.appendObjectToObjectList(boreLine);
+  }
+
+  getNextId(): number {
+    let currentCanvasHistory: CanvasHistory = this.state.canvasHistory;
+    let returnId: number = currentCanvasHistory.idCounter;
+    currentCanvasHistory.idCounter++;
+    this.setState({
+      canvasHistory: currentCanvasHistory,
+    });
+    return returnId;
+  }
+
+  deleteLastObject() {
+    let currentCanvasHistory: CanvasHistory = this.state.canvasHistory;
+    currentCanvasHistory.objectList.pop();
+    this.setState(
+      {
+        canvasHistory: currentCanvasHistory,
+      },
+      () => {
+        this.clearCanvas();
+        this.drawAllObjects();
+      }
+    );
   }
 
   userClick(e: React.MouseEvent<HTMLElement>) {
+    console.log("user click");
     console.log(this.props.currentlySelectedOption);
+    console.log("current state..");
+    console.log(this.state);
 
     let clickPosition: CanvasCoordinates = {
       x: e.clientX,
@@ -107,11 +225,16 @@ export default class Canvas extends React.Component<CanvasProps, CanvasState> {
       return;
     }
     if (this.props.currentlySelectedOption === DrawingOptions.staText) {
-      this.drawStationText(clickPosition);
+      this.createStationText(clickPosition);
+      this.drawAllObjects();
       return;
     }
+
     if (this.state.currentlyDrawing) {
-      this.drawLine(this.state.initialPosition as CanvasCoordinates, clickPosition);
+      console.log("this happens...");
+      // this.drawLine(this.state.initialPosition as CanvasCoordinates, clickPosition);
+      this.createBoreLine(this.state.initialPosition as CanvasCoordinates, clickPosition);
+      this.drawAllObjects();
       this.setState({
         endPosition: clickPosition,
         currentlyDrawing: false,

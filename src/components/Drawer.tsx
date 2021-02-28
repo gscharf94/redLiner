@@ -47,9 +47,12 @@ export default class Drawer extends React.Component<DrawerProps, DrawerState> {
   drawingOptionSelected(option: DrawingOptions) {
     console.log(`clicked selection bar.. ${option} | ${DrawingOptions[option]}`);
     if (option === DrawingOptions.clear) {
+      (this.refs.canvas as any).clearCanvasHistory();
       (this.refs.canvas as any).clearCanvas();
     } else if (option === DrawingOptions.staText) {
       this.toggleStationTextInput();
+    } else if (option === DrawingOptions.undo) {
+      (this.refs.canvas as any).deleteLastObject();
     }
     this.setState({
       currentlySelectedOption: option,
