@@ -22,12 +22,20 @@ interface CanvasState {
 
 class CanvasObject {
   id: number;
+  selected: boolean;
 
   constructor(id: number) {
     this.id = id;
+    this.selected = false;
   }
 
+  drawSelfSelection(canv: CanvasRenderingContext2D): void {}
+
   drawSelf(canv: CanvasRenderingContext2D): void {}
+
+  checkPoint(p: CanvasCoordinates): boolean {
+    return false;
+  }
 
   drawRectangle(p1: CanvasCoordinates, p2: CanvasCoordinates, color: string, canv: CanvasRenderingContext2D) {
     let width: number = Math.abs(p1.x - p2.x);
@@ -75,6 +83,8 @@ class CanvasStationText extends CanvasObject {
   date: string;
   startEnd: "START" | "END";
   position: CanvasCoordinates;
+  rectangleWidth: number;
+  rectangleHeight: number;
 
   constructor(
     stationText: string,
@@ -90,23 +100,50 @@ class CanvasStationText extends CanvasObject {
     this.date = date;
     this.startEnd = startEnd;
     this.position = position;
+
+    this.rectangleWidth = 125;
+    this.rectangleHeight = 68;
+  }
+
+  checkPoint(p: CanvasCoordinates): boolean {
+    if (
+      p.x > this.position.x &&
+      p.x < this.position.x + this.rectangleWidth &&
+      p.y > this.position.y &&
+      p.y < this.position.y + this.rectangleHeight
+    ) {
+      console.log(`user clicked onto station text object id: ${this.id}`);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  drawSelfSelection(canv: CanvasRenderingContext2D): void {
+    canv.strokeStyle = "lightyellow";
+    canv.lineWidth = 4;
+    canv.strokeRect(this.position.x - 5, this.position.y - 5, this.rectangleWidth + 5, this.rectangleHeight + 5);
   }
 
   drawSelf(canv: CanvasRenderingContext2D): void {
     super.drawSelf(canv);
 
     this.drawRectangle(
-      { x: this.position.x - 3, y: this.position.y - 18 },
-      { x: this.position.x + 122, y: this.position.y + 45 },
+      { x: this.position.x, y: this.position.y },
+      { x: this.position.x + this.rectangleWidth, y: this.position.y + this.rectangleHeight },
       "red",
       canv
     );
 
     canv.font = "20px Arial";
     canv.fillStyle = "black";
-    canv.fillText(`STA#${this.stationText}`, this.position.x, this.position.y);
-    canv.fillText(`${this.footage}' ${this.startEnd}`, this.position.x, this.position.y + 20);
-    canv.fillText(this.date, this.position.x, this.position.y + 40);
+    canv.fillText(`STA#${this.stationText}`, this.position.x + 5, this.position.y + 20);
+    canv.fillText(`${this.footage}' ${this.startEnd}`, this.position.x + 5, this.position.y + 40);
+    canv.fillText(this.date, this.position.x + 5, this.position.y + 60);
+
+    if (this.selected) {
+      this.drawSelfSelection(canv);
+    }
   }
 }
 
@@ -210,12 +247,39 @@ export default class Canvas extends React.Component<CanvasProps, CanvasState> {
     );
   }
 
-  userClick(e: React.MouseEvent<HTMLElement>) {
-    console.log("user click");
-    console.log(this.props.currentlySelectedOption);
-    console.log("current state..");
-    console.log(this.state);
+  toggleObjectSelection(obj: CanvasObject): void {
+    if (obj.selected) {
+      obj.selected = false;
+    } else {
+      obj.selected = true;
+    }
 
+    let currentCanvasHistory = this.state.canvasHistory;
+    let newObjectList: CanvasObject[] = [];
+
+    for (const currentObj of currentCanvasHistory.objectList) {
+      if (currentObj.id === obj.id) {
+        newObjectList.push(obj);
+      } else {
+        newObjectList.push(currentObj);
+      }
+    }
+
+    this.setState({
+      canvasHistory: currentCanvasHistory,
+    });
+  }
+
+  matchObjectPositionToClick(position: CanvasCoordinates): CanvasObject | boolean {
+    for (const obj of this.state.canvasHistory.objectList) {
+      if (obj.checkPoint(position)) {
+        return obj;
+      }
+    }
+    return false;
+  }
+
+  userClick(e: React.MouseEvent<HTMLElement>) {
     let clickPosition: CanvasCoordinates = {
       x: e.clientX,
       y: e.clientY,
@@ -224,9 +288,21 @@ export default class Canvas extends React.Component<CanvasProps, CanvasState> {
     if (this.props.currentlySelectedOption === DrawingOptions.none) {
       return;
     }
+
     if (this.props.currentlySelectedOption === DrawingOptions.staText) {
       this.createStationText(clickPosition);
       this.drawAllObjects();
+      return;
+    }
+
+    if (this.props.currentlySelectedOption === DrawingOptions.select) {
+      console.log("select option selected");
+      let selectedObject = this.matchObjectPositionToClick(clickPosition);
+      if (selectedObject instanceof CanvasObject) {
+        this.toggleObjectSelection(selectedObject);
+        this.clearCanvas();
+        this.drawAllObjects();
+      }
       return;
     }
 

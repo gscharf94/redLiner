@@ -46,8 +46,14 @@ export default class SelectionBar extends React.Component<SelectionBarProps, Sel
       selectionCallback: this.drawingOptionSelection,
     };
 
+    const selectSelectionProps: SelectionButtonProps = {
+      selectionType: DrawingOptions.select,
+      selectionCallback: this.drawingOptionSelection,
+    };
+
     return (
       <div style={{ display: "flex", justifyContent: "center", backgroundColor: "lightblue" }}>
+        <SelectionButton {...selectSelectionProps} />
         <SelectionButton {...boreSelectionProps} />
         <SelectionButton {...staTextSelectionProps} />
         <SelectionButton {...stationArrowSelectionProps} />
